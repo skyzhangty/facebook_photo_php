@@ -1,10 +1,7 @@
 <?php
 	require_once('photo.php');
 
-	define("VANDY_ID", "61441666906");
-	define("ACCESS_TOKEN", "CAACEdEose0cBADaT9Lls9VwivZCPOIZBfxWjjgvw3jfeJKRpCvBwo4VhJxCRbtUlKI6MsAo2QsHFxwvtlHUt39Bw5OHZBZCNnQGQusZBjTJyU3RRFlWn1GAx9Wrnt8eFthlOuKW1da6m7ZA77J24moNGDhXrDaYnDsaJ28jO72m5Rey24oSfL0bdgGZBuu3AxJmQfAwP7gvr2isALMKZAkGsRtVLb1SZB3TkZD");
-
-	$url = 'https://graph.facebook.com/v2.3/'.VANDY_ID.'/photos/uploaded?access_token='.ACCESS_TOKEN;
+	$url = 'https://graph.facebook.com/vanderbilt/photos/uploaded';
 	$photo_data_arr = send_http_get_req($url)['data'];
 
 	$photo_arr = array();
@@ -55,9 +52,7 @@
 			#use db
 			$sql = "use photodb";
 			$conn->exec($sql);
-			#drop table
-			$sql = "drop table if exists photos";
-			$conn->exec($sql);
+			
 			#create table
 			$sql = "create table if not exists photos (
 				id int(6) unsigned auto_increment primary key,
@@ -65,22 +60,30 @@
 				name varchar(1000) not null,
 				image_url varchar(1000) not null,
 				created_time varchar(100) not null,
-				likes int(10) not null)";
+				likes int(10) not null,
+				unique index (`photo_id`))";
 			$conn->exec($sql);
 
 			#insert photos
+			$sql = "insert into photos (photo_id, name, image_url, created_time, likes)
+					values (:photo_id, :name, :image_url, :created_time, :num_of_likes) 
+					on duplicate key update name=values(name), image_url=values(image_url), 
+					created_time=values(created_time), likes=values(likes)";
+			$stmt = $conn->prepare($sql);
+			$stmt->bindParam(':photo_id', $photo_id);
+			$stmt->bindParam(':name', $name);
+			$stmt->bindParam(':image_url', $image_url);
+			$stmt->bindParam(':created_time', $created_time);
+			$stmt->bindParam(':num_of_likes', $num_of_likes);
+			
 			foreach ($photo_arr as $photo) {
 				$photo_id = $photo->getPhotoId();
 				$name = $photo->getName();
-				$name = str_replace("'", "\'", $name);
-				$name = str_replace('"', '\"', $name);
 				$image_url = $photo->getUrl();
 				$created_time = $photo->getCreateTime();
 				$num_of_likes = $photo->getLikes();
 
-				$sql = "insert into photos (photo_id, name, image_url, created_time, likes)
-					values ('$photo_id', '$name', '$image_url', '$created_time', '$num_of_likes')";
-				$conn->exec($sql);
+				$stmt->execute();
 			}
 
 		}
